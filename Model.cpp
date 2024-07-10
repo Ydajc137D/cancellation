@@ -24,7 +24,7 @@ void Model::initializeGame(Difficulty difficulty) {
     assignNewTask();
     isNewRecord = false;
     refreshBoard();//改为固定棋盘
-    //clearElements();
+    clearElements();
     score = 0;
     ToolNumber = {
     {HAMMER, 3},
@@ -71,13 +71,20 @@ bool Model::loadGame() {
     return false;
 }
 
-void Model::processSwap(int x1, int y1, int x2, int y2) {
+GameState Model::processSwap(int x1, int y1, int x2, int y2) {//返回值为交换（并消除后）即时的状态
     // 处理交换并更新状态
+    GameState state;
     if (isValidSwap(x1, y1, x2, y2)) {
+        state = getGameState();
         handleEmptyAndGravity();
-        clearElements();
+        //clearElements();
         stepsLeft--;
     }
+    else {
+        state = getGameState();
+        std::swap(board[x1][y1], board[x2][y2]);
+    }
+    return state;
 }
 
 void Model::useTool(ToolType tool, int x, int y) {
@@ -86,7 +93,7 @@ void Model::useTool(ToolType tool, int x, int y) {
     case HAMMER:
         board[x][y] = EMPTY;
         handleEmptyAndGravity();
-        clearElements();
+        //clearElements();
         break;
     case BOMB_TRANSFORM:
         board[x][y] = BOMB;
@@ -454,9 +461,9 @@ bool Model::isValidSwap(int x1, int y1, int x2, int y2) {
     }
 
     // 如果没有任何消除发生，撤销交换
-    if (!result1 && !result2) {
-        std::swap(board[x1][y1], board[x2][y2]);
-    }
+    //if (!result1 && !result2) {
+        //std::swap(board[x1][y1], board[x2][y2]);
+    //}
 
     return result1||result2;
 }

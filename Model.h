@@ -50,7 +50,7 @@ public:
 
     // Ïû³ýÂß¼­
     bool isValidSwap(int x1, int y1, int x2, int y2);
-    void processSwap(int x1, int y1, int x2, int y2);
+    GameState processSwap(int x1, int y1, int x2, int y2);
     void handleEmptyAndGravity();
     bool checkSpecialElement(int x, int y);
     bool checkRowOrColumn(int x, int y, bool isRow);
