@@ -13,12 +13,12 @@ void ViewModel::saveAndResetDifficult() {
 }
 
 void ViewModel::getSimpleRank() {
-    // è·å–ç®€å•æ¨¡å¼æ’è¡Œæ¦œ
+    // »ñÈ¡¼òµ¥Ä£Ê½ÅÅĞĞ°ñ
     model.loadLeaderboard();
 }
 
 void ViewModel::getDifficultRank() {
-    // è·å–å›°éš¾æ¨¡å¼æ’è¡Œæ¦œ
+    // »ñÈ¡À§ÄÑÄ£Ê½ÅÅĞĞ°ñ
     model.loadLeaderboard();
 }
 
@@ -27,7 +27,7 @@ void ViewModel::fetchUserSwap(int x1, int y1, int x2, int y2) {
         model.processSwap(x1, x2, y1, y2);
     }
     else {
-        // å¤„ç†éæ³•äº¤æ¢
+        // ´¦Àí·Ç·¨½»»»
         std::swap(model.board[x1][y1], model.board[x2][y2]);
         std::swap(model.board[x1][y1], model.board[x2][y2]);
     }
@@ -37,13 +37,33 @@ GameState ViewModel::getGameState() const {
     return model.getGameState();
 }
 
+std::vector<std::vector<ElementType>> ViewModel::getBoardState() const {
+    return model.getBoardState();
+}
+
+int ViewModel::getScoreState() const {
+    return model.getScoreState();
+}
+
+int ViewModel::getStepsLeftState() const {
+    return model.getStepsLeftState();
+}
+
+std::string ViewModel::getTaskState() const {
+    return model.getTaskState();
+}
+
+std::unordered_map<ToolType, int> ViewModel::getToolState() const {
+    return model.getToolState();
+}
+
 void ViewModel::getToolUse(ToolType tool, int x, int y) {
     model.useTool(tool, x, y);
 }
 
-//int ViewModel::getNewTask() const {
-//    return model.getGameState().currentTask.TaskType;
-//}
+int ViewModel::getNewTask() const {
+    return model.getGameState().currentTask.TaskType;
+}
 
 void ViewModel::fetchUpdateTaskProgress() {
     if (model.checkTaskCompletion()) {

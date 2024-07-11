@@ -8,31 +8,36 @@ class ViewModel {
 public:
     ViewModel();
 
-    // å¼€å§‹æ–°æ¸¸æˆ
+    // ¿ªÊ¼ĞÂÓÎÏ·
     void saveAndResetSimple();
     void saveAndResetDifficult();
 
-    // æ’è¡Œæ¦œ
+    // ÅÅĞĞ°ñ
     void getSimpleRank();
     void getDifficultRank();
 
-    // æ¸¸æˆçŠ¶æ€ç®¡ç†
+    // ÓÎÏ·×´Ì¬¹ÜÀí
     void fetchUserSwap(int x1, int y1, int x2, int y2);
     GameState getGameState() const;
+    std::vector<std::vector<ElementType>> getBoardState() const;
+    int getScoreState() const;
+    int getStepsLeftState() const;
+    std::string getTaskState() const;
+    std::unordered_map<ToolType, int> getToolState() const;
     bool isGameOver();
 
-    // é“å…·æ“ä½œ
+    // µÀ¾ß²Ù×÷
     void getToolUse(ToolType tool, int x, int y);
 
-    // ä»»åŠ¡ç®¡ç†
+    // ÈÎÎñ¹ÜÀí
     int getNewTask() const;
     void fetchUpdateTaskProgress();
 
-    // è¿›åº¦ç®¡ç†
+    // ½ø¶È¹ÜÀí
     void saveGameProgress();
     void loadGameProgress();
 
-    // ç§¯åˆ†å’Œè®°å½•ç®¡ç†
+    // »ı·ÖºÍ¼ÇÂ¼¹ÜÀí
     int fetchPoint() const;
     bool getIsNewRecord();
 
