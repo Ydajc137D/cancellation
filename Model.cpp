@@ -5,10 +5,10 @@
 
 std::unordered_map<int, std::string> taskContent = {
     {1, "Collect 100 points"},
-    {2, "Clear 20 apples"},
-    {3, "Use 3 special elements"},
-    {4, "Complete within 50 moves"},
-    {5, "Achieve a combo of 5"}
+    {2, "Collect 200 points"},
+    {3, "Collect 400 points"},
+    {4, "Collect 800 points"},
+    {5, "Collect 1600 points"}
 };
 
 Model::Model() {
@@ -24,12 +24,12 @@ void Model::initializeGame(Difficulty difficulty) {
     assignNewTask();
     isNewRecord = false;
     refreshBoard();//改为固定棋盘
-    //clearElements();
+    clearElements();
     score = 0;
     ToolNumber = {
     {HAMMER, 3},
     {BOMB_TRANSFORM, 1},
-    {REFRESH, 5},
+    {REFRESH, 99999},
     {ROW_CLEAR_TRANSFORM, 1},
     {COLUMN_CLEAR_TRANSFORM, 1}
     };
@@ -71,13 +71,20 @@ bool Model::loadGame() {
     return false;
 }
 
-void Model::processSwap(int x1, int y1, int x2, int y2) {
+std::vector<std::vector<ElementType>> Model::processSwap(int x1, int y1, int x2, int y2) {//返回值为交换（并消除后）即时的状态
     // 处理交换并更新状态
+    std::vector<std::vector<ElementType>> immediateboard;
     if (isValidSwap(x1, y1, x2, y2)) {
+        immediateboard = getBoardState();
         handleEmptyAndGravity();
-        clearElements();
+        //clearElements();
         stepsLeft--;
     }
+    else {
+        immediateboard = getBoardState();
+        std::swap(board[x1][y1], board[x2][y2]);
+    }
+    return immediateboard;
 }
 
 void Model::useTool(ToolType tool, int x, int y) {
@@ -86,7 +93,7 @@ void Model::useTool(ToolType tool, int x, int y) {
     case HAMMER:
         board[x][y] = EMPTY;
         handleEmptyAndGravity();
-        clearElements();
+        //clearElements();
         break;
     case BOMB_TRANSFORM:
         board[x][y] = BOMB;
@@ -106,15 +113,13 @@ void Model::useTool(ToolType tool, int x, int y) {
 
 void Model::assignNewTask() {
     // 分配新任务
-    int taskType = (rand() % 5) + 1;
-    currentTask.TaskType = taskType;
-    currentTask.Taskcontent = taskContent[taskType];
+    currentTask.TaskType ++;
+    currentTask.Taskcontent = taskContent[currentTask.TaskType];
 }
 
-bool Model::checkTaskCompletion() {//待补充
-    // 检查任务完成情况
-    // 假设任务是获得100分
-    if (currentTask.TaskType == 1 && score >= 100) {
+bool Model::checkTaskCompletion() {
+    if (score >= 50 * pow(2, currentTask.TaskType)) {
+        assignNewTask();//若检测到任务完成，会自动分配新任务
         return true;
     }
     return false;
@@ -161,6 +166,26 @@ GameState Model::getGameState() const {
         ToolNumber
     };
     return state;
+}
+
+std::vector<std::vector<ElementType>> Model::getBoardState() const {
+    return board;
+}
+
+int Model::getScoreState() const {
+    return score;
+}
+
+int Model::getStepsLeftState() const {
+    return stepsLeft;
+}
+
+std::string Model::getTaskState() const {
+    return currentTask.Taskcontent;
+}
+
+std::unordered_map<ToolType, int> Model::getToolState() const {
+    return ToolNumber;
 }
 
 bool Model::checkRainbowCircle(int x, int y, ElementType type) {
@@ -454,9 +479,9 @@ bool Model::isValidSwap(int x1, int y1, int x2, int y2) {
     }
 
     // 如果没有任何消除发生，撤销交换
-    if (!result1 && !result2) {
-        std::swap(board[x1][y1], board[x2][y2]);
-    }
+    //if (!result1 && !result2) {
+        //std::swap(board[x1][y1], board[x2][y2]);
+    //}
 
     return result1||result2;
 }

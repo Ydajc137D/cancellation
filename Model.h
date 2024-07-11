@@ -50,7 +50,7 @@ public:
 
     // 消除逻辑
     bool isValidSwap(int x1, int y1, int x2, int y2);
-    void processSwap(int x1, int y1, int x2, int y2);
+    std::vector<std::vector<ElementType>> processSwap(int x1, int y1, int x2, int y2);
     void handleEmptyAndGravity();
     bool checkSpecialElement(int x, int y);
     bool checkRowOrColumn(int x, int y, bool isRow);
@@ -103,6 +103,11 @@ public:
 
     // 获取游戏状态
     GameState getGameState() const;
+    std::vector<std::vector<ElementType>> getBoardState() const;
+    int getScoreState() const;
+    int getStepsLeftState() const;
+    std::string getTaskState() const;
+    std::unordered_map<ToolType, int> getToolState() const;
     bool isGameOver();
 
 private:
