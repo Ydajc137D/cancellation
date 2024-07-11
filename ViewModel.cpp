@@ -13,12 +13,12 @@ void ViewModel::saveAndResetDifficult() {
 }
 
 void ViewModel::getSimpleRank() {
-    // »ñÈ¡¼òµ¥Ä£Ê½ÅÅĞĞ°ñ
+    // è·å–ç®€å•æ¨¡å¼æ’è¡Œæ¦œ
     model.loadLeaderboard();
 }
 
 void ViewModel::getDifficultRank() {
-    // »ñÈ¡À§ÄÑÄ£Ê½ÅÅĞĞ°ñ
+    // è·å–å›°éš¾æ¨¡å¼æ’è¡Œæ¦œ
     model.loadLeaderboard();
 }
 
@@ -27,7 +27,7 @@ void ViewModel::fetchUserSwap(int x1, int y1, int x2, int y2) {
         model.processSwap(x1, x2, y1, y2);
     }
     else {
-        // ´¦Àí·Ç·¨½»»»
+        // å¤„ç†éæ³•äº¤æ¢
         std::swap(model.board[x1][y1], model.board[x2][y2]);
         std::swap(model.board[x1][y1], model.board[x2][y2]);
     }
@@ -41,9 +41,9 @@ void ViewModel::getToolUse(ToolType tool, int x, int y) {
     model.useTool(tool, x, y);
 }
 
-int ViewModel::getNewTask() const {
-    return model.getGameState().currentTask.TaskType;
-}
+//int ViewModel::getNewTask() const {
+//    return model.getGameState().currentTask.TaskType;
+//}
 
 void ViewModel::fetchUpdateTaskProgress() {
     if (model.checkTaskCompletion()) {

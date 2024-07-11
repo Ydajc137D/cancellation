@@ -8,31 +8,31 @@ class ViewModel {
 public:
     ViewModel();
 
-    // ¿ªÊ¼ĞÂÓÎÏ·
+    // å¼€å§‹æ–°æ¸¸æˆ
     void saveAndResetSimple();
     void saveAndResetDifficult();
 
-    // ÅÅĞĞ°ñ
+    // æ’è¡Œæ¦œ
     void getSimpleRank();
     void getDifficultRank();
 
-    // ÓÎÏ·×´Ì¬¹ÜÀí
+    // æ¸¸æˆçŠ¶æ€ç®¡ç†
     void fetchUserSwap(int x1, int y1, int x2, int y2);
     GameState getGameState() const;
     bool isGameOver();
 
-    // µÀ¾ß²Ù×÷
+    // é“å…·æ“ä½œ
     void getToolUse(ToolType tool, int x, int y);
 
-    // ÈÎÎñ¹ÜÀí
+    // ä»»åŠ¡ç®¡ç†
     int getNewTask() const;
     void fetchUpdateTaskProgress();
 
-    // ½ø¶È¹ÜÀí
+    // è¿›åº¦ç®¡ç†
     void saveGameProgress();
     void loadGameProgress();
 
-    // »ı·ÖºÍ¼ÇÂ¼¹ÜÀí
+    // ç§¯åˆ†å’Œè®°å½•ç®¡ç†
     int fetchPoint() const;
     bool getIsNewRecord();
 
