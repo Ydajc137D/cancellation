@@ -1,43 +1,38 @@
-#pragma once
+// ViewModel.h
 #ifndef VIEWMODEL_H
 #define VIEWMODEL_H
 
-#include "Model.h"
+#include <QObject>
+#include <QVector>
+#include "model.h"
 
-class ViewModel {
+class ViewModel : public QObject
+{
+    Q_OBJECT
+
 public:
-    ViewModel();
+    explicit ViewModel(Model *model, QObject *parent = nullptr);
 
-    // 开始新游戏
-    void saveAndResetSimple();
-    void saveAndResetDifficult();
+    QVector<QVector<int>> getBoardState() const;
 
-    // 排行榜
-    void getSimpleRank();
-    void getDifficultRank();
+    void initializeBoard();
+    void swapTiles(int x1, int y1, int x2, int y2);
 
-    // 游戏状态管理
-    void fetchUserSwap(int x1, int y1, int x2, int y2);
-    GameState getGameState() const;
-    bool isGameOver();
+    void onBoardStateChanged();
+    void onTilesSwapped();
+    void onTilesEliminated(const QVector<TilePosition>& tiles);
+    void onTilesDropped();
+    void onBoardUpdated();
 
-    // 道具操作
-    void getToolUse(ToolType tool, int x, int y);
-
-    // 任务管理
-    int getNewTask() const;
-    void fetchUpdateTaskProgress();
-
-    // 进度管理
-    void saveGameProgress();
-    void loadGameProgress();
-
-    // 积分和记录管理
-    int fetchPoint() const;
-    bool getIsNewRecord();
+    signals:
+            void boardStateChanged();
+    void tilesSwapped();
+    void tilesEliminated(const QVector<TilePosition>& tiles);
+    void tilesDropped();
+    void boardUpdated();
 
 private:
-    Model model;
+    Model *m_model;
 };
 
-#endif
+#endif // VIEWMODEL_H

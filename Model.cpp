@@ -1,587 +1,168 @@
-#include "Model.h"
-#include <algorithm>
-#include <fstream>
-#include <random>
+// model.cpp
+#include "model.h"
 
-std::unordered_map<int, std::string> taskContent = {
-    {1, "Collect 100 points"},
-    {2, "Clear 20 apples"},
-    {3, "Use 3 special elements"},
-    {4, "Complete within 50 moves"},
-    {5, "Achieve a combo of 5"}
-};
-
-Model::Model() {
-    loadLeaderboard();
-}
-
-void Model::initializeGame(Difficulty difficulty) {
-    currentDifficulty = difficulty;
-    board = std::vector<std::vector<ElementType>>(10, std::vector<ElementType>(10));
-    score = 0;
-    stepsLeft = (difficulty == EASY) ? 70 : 40; 
-    //timeLeft = (difficulty == EASY) ? -1 : 300; // ÎŞÊ±¼äÏŞÖÆ»ò³õÊ¼Ê±¼ä£¨Ãë£©
-    assignNewTask();
-    isNewRecord = false;
-    refreshBoard();//¸ÄÎª¹Ì¶¨ÆåÅÌ
-    //clearElements();
-    score = 0;
-    ToolNumber = {
-    {HAMMER, 3},
-    {BOMB_TRANSFORM, 1},
-    {REFRESH, 5},
-    {ROW_CLEAR_TRANSFORM, 1},
-    {COLUMN_CLEAR_TRANSFORM, 1}
-    };
-}
-
-bool Model::saveGame() {
-    // ±£´æµ±Ç°ÓÎÏ·×´Ì¬µ½ÎÄ¼ş
-    std::ofstream outFile("game_save.dat", std::ios::binary);
-    outFile.write(reinterpret_cast<const char*>(&board[0]), board.size() * sizeof(board[0]));
-    outFile.write(reinterpret_cast<const char*>(&score), sizeof(score));
-    outFile.write(reinterpret_cast<const char*>(&stepsLeft), sizeof(stepsLeft));
-    //outFile.write(reinterpret_cast<const char*>(&timeLeft), sizeof(timeLeft));
-    outFile.write(reinterpret_cast<const char*>(&currentTask.TaskType), sizeof(currentTask.TaskType));
-    outFile.write(currentTask.Taskcontent.c_str(), currentTask.Taskcontent.size());
-    outFile.write(reinterpret_cast<const char*>(&currentDifficulty), sizeof(currentDifficulty));
-    outFile.write(reinterpret_cast<const char*>(&isNewRecord), sizeof(isNewRecord));
-    outFile.close();
-    if (!outFile) return false;
-    return true;
-}
-
-bool Model::loadGame() {
-    // ´ÓÎÄ¼ş¼ÓÔØÓÎÏ·×´Ì¬
-    std::ifstream inFile("game_save.dat", std::ios::binary);
-    if (inFile) {
-        inFile.read(reinterpret_cast<char*>(&board[0]), board.size() * sizeof(board[0]));
-        inFile.read(reinterpret_cast<char*>(&score), sizeof(score));
-        inFile.read(reinterpret_cast<char*>(&stepsLeft), sizeof(stepsLeft));
-        //inFile.read(reinterpret_cast<char*>(&timeLeft), sizeof(timeLeft));
-        inFile.read(reinterpret_cast<char*>(&currentTask.TaskType), sizeof(currentTask.TaskType));
-        char taskBuffer[256];
-        inFile.read(taskBuffer, 256);
-        currentTask.Taskcontent = std::string(taskBuffer);
-        inFile.read(reinterpret_cast<char*>(&currentDifficulty), sizeof(currentDifficulty));
-        inFile.read(reinterpret_cast<char*>(&isNewRecord), sizeof(isNewRecord));
-        inFile.close();
-        return true;
-    }
-    return false;
-}
-
-void Model::processSwap(int x1, int y1, int x2, int y2) {
-    // ´¦Àí½»»»²¢¸üĞÂ×´Ì¬
-    if (isValidSwap(x1, y1, x2, y2)) {
-        handleEmptyAndGravity();
-        clearElements();
-        stepsLeft--;
+//æ„å»º10*10çš„æ¿å­
+Model::Model(QObject *parent)
+        : QObject(parent)
+{
+    m_board.resize(10);
+    for (auto &row : m_board) {
+        row.resize(10);
     }
 }
 
-void Model::useTool(ToolType tool, int x, int y) {
-    // Ê¹ÓÃµÀ¾ß²¢¸üĞÂ×´Ì¬
-    switch (tool) {
-    case HAMMER:
-        board[x][y] = EMPTY;
-        handleEmptyAndGravity();
-        clearElements();
-        break;
-    case BOMB_TRANSFORM:
-        board[x][y] = BOMB;
-        break;
-    case REFRESH:
-        refreshBoard();
-        clearElements();
-        break;
-    case ROW_CLEAR_TRANSFORM:
-        board[x][y] = ROW_CLEAR;
-        break;
-    case COLUMN_CLEAR_TRANSFORM:
-        board[x][y] = COLUMN_CLEAR;
-        break;
+Model::~Model()
+{
+}
+
+//éšæœºåˆå§‹åŒ–æ¿å­ï¼Œå‘é€æ¿å­çŠ¶æ€æ”¹å˜ä¿¡å·
+void Model::initializeBoard()
+{
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            generateRandomColor(i, j);
+        }
+    }
+    emit boardStateChanged();
+}
+
+//è¿”å›æ¿å­çŠ¶æ€
+QVector<QVector<int>> Model::getBoardState() const
+{
+    return m_board;
+}
+
+//äº¤æ¢ä¸¤æ ¼å…ƒç´ ï¼Œå‘å‡ºæ ¼å­äº¤æ¢çš„ä¿¡å·
+void Model::swapTiles(int x1, int y1, int x2, int y2)
+{
+    if (x1 < 0 || x1 >= 10 || y1 < 0 || y1 >= 10 || x2 < 0 || x2 >= 10 || y2 < 0 || y2 >= 10) {
+        //è¶…å‡ºæ¸¸æˆæ¿è¾¹ç•Œï¼Œäº¤æ¢éæ³•
+        return;
+    }
+    if (qAbs(x1 - x2) + qAbs(y1 - y2) != 1) {
+        return; // éç›¸é‚»ä½ç½®ï¼Œäº¤æ¢éæ³•
+    }
+    std::swap(m_board[x1][y1], m_board[x2][y2]);
+    emit tilesSwapped();
+}
+
+//å¯»æ‰¾å½“å‰æ£‹ç›˜ä¸­æ˜¯å¦æœ‰å¯ä»¥æ¶ˆé™¤çš„ç»„åˆ
+bool Model::checkForMatches()
+{
+    bool matchFound = false;
+    // Check rows
+    for (int i = 0; i < 10; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (m_board[i][j] == m_board[i][j + 1] && m_board[i][j + 1] == m_board[i][j + 2]) {
+                matchFound = true;
+                // Add logic to collect tiles to eliminate here
+            }
+        }
+    }
+    // Check columns
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            if (m_board[i][j] == m_board[i + 1][j] && m_board[i + 1][j] == m_board[i + 2][j]) {
+                matchFound = true;
+                // Add logic to collect tiles to eliminate here
+            }
+        }
+    }
+    return matchFound;
+}
+
+//å°†å¯ä»¥æ¶ˆé™¤çš„æ ¼å­åæ ‡{xï¼Œy}ä¼ å…¥matcheså®¹å™¨
+void Model::checkForMatches(QVector<TilePosition>& matches)
+{
+    matches.clear();
+
+    // æ£€æŸ¥æ°´å¹³æ–¹å‘çš„åŒ¹é…
+    for (int i = 0; i < 10; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (m_board[i][j] == m_board[i][j + 1] && m_board[i][j + 1] == m_board[i][j + 2]) {
+                matches.push_back({i, j});
+                matches.push_back({i, j + 1});
+                matches.push_back({i, j + 2});
+            }
+        }
+    }
+
+    // æ£€æŸ¥å‚ç›´æ–¹å‘çš„åŒ¹é…
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            if (m_board[i][j] == m_board[i + 1][j] && m_board[i + 1][j] == m_board[i + 2][j]) {
+                matches.push_back({i, j});
+                matches.push_back({i + 1, j});
+                matches.push_back({i + 2, j});
+            }
+        }
     }
 }
 
-void Model::assignNewTask() {
-    // ·ÖÅäĞÂÈÎÎñ
-    int taskType = (rand() % 5) + 1;
-    currentTask.TaskType = taskType;
-    currentTask.Taskcontent = taskContent[taskType];
+//å¯¹æ ‡è®°ä¸ºè¦æ¸…é™¤çš„æ ¼å­è¿›è¡Œæ¶ˆé™¤ï¼ˆç½®EMPTYï¼‰ï¼Œå‘å‡ºä¿¡å·ä¼ é€’è¢«æ¶ˆé™¤çš„æ ¼å­åæ ‡
+void Model::eliminateTiles(const QVector<TilePosition>& tiles)
+{
+    for (const auto& tile : tiles) {
+        m_board[tile.row][tile.col] = 0; 
+    }
+    emit tilesEliminated(tiles);
 }
 
-bool Model::checkTaskCompletion() {//´ı²¹³ä
-    // ¼ì²éÈÎÎñÍê³ÉÇé¿ö
-    // ¼ÙÉèÈÎÎñÊÇ»ñµÃ100·Ö
-    if (currentTask.TaskType == 1 && score >= 100) {
-        return true;
-    }
-    return false;
-}
-
-void Model::loadLeaderboard() {
-    // ´ÓÎÄ¼ş¼ÓÔØÅÅĞĞ°ñÊı¾İ
-    std::ifstream inFile("leaderboard.dat", std::ios::binary);
-    if (inFile) {
-        inFile.read(reinterpret_cast<char*>(&highScores[EASY]), sizeof(highScores[EASY]));
-        inFile.read(reinterpret_cast<char*>(&highScores[HARD]), sizeof(highScores[HARD]));
-        inFile.close();
-    }
-}
-
-void Model::saveLeaderboard() {
-    // ±£´æÅÅĞĞ°ñÊı¾İµ½ÎÄ¼ş
-    std::ofstream outFile("leaderboard.dat", std::ios::binary);
-    outFile.write(reinterpret_cast<const char*>(&highScores[EASY]), sizeof(highScores[EASY]));
-    outFile.write(reinterpret_cast<const char*>(&highScores[HARD]), sizeof(highScores[HARD]));
-    outFile.close();
-}
-
-bool Model::BreakRecord() {
-    // ¼ì²éµ±Ç°µÃ·ÖÊÇ·ñÎªĞÂ¸ß
-    if (score > highScores[currentDifficulty]) {
-        highScores[currentDifficulty] = score;
-        isNewRecord = true;
-        saveLeaderboard();
-        return true;
-    }
-    isNewRecord = false;
-    return false;
-}
-
-GameState Model::getGameState() const {
-    GameState state = {
-        board,
-        score,
-        stepsLeft,
-        //timeLeft,
-        currentTask,
-        isNewRecord,
-        ToolNumber
-    };
-    return state;
-}
-
-bool Model::checkRainbowCircle(int x, int y, ElementType type) {
-    bool result = false;
-    int rainbowCount = 1;
-    // ºáÏò¼ì²é
-    for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-        rainbowCount++;
-    }
-    for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-        rainbowCount++;
-    }
-    if (rainbowCount >= 5) {
-        for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-            board[x][i] = EMPTY;
-        }
-        for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-            board[x][i] = EMPTY;
-        }
-        board[x][y] = RAINBOW_CIRCLE;
-        //¼æ¹Ë×İÏòÈıÏû£¿
-        result = true;
-    }
-    if (result) return result;
-
-    // ×İÏò¼ì²é
-    int verticalRainbowCount = 1;
-    for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-        verticalRainbowCount++;
-    }
-    for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-        verticalRainbowCount++;
-    }
-    if (verticalRainbowCount >= 5) {
-        for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-            board[i][y] = EMPTY;
-        }
-        for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-            board[i][y] = EMPTY;
-        }
-        board[x][y] = RAINBOW_CIRCLE;
-        //¼æ¹ËºáÏòÈıÏû£¿
-        result = true;
-    }
-    return result;
-}
-
-bool Model::checkBombL(int x, int y, ElementType type) {
-    bool result = false;
-    if (y >= 2 && board[x][y - 1] == type && board[x][y - 2] == type) {
-        // ÓÒÏÂ
-        if (x >= 2 && board[x - 1][y] == type && board[x - 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y - 2] = EMPTY;
-            board[x - 1][y] = EMPTY;
-            board[x - 2][y] = EMPTY;
-            result = true;
-        }
-        if (result) return result;
-        // ÓÒÉÏ
-        if (x <= 7 && board[x + 1][y] == type && board[x + 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y - 2] = EMPTY;
-            board[x + 1][y] = EMPTY;
-            board[x + 2][y] = EMPTY;
-            result = true;
-        }
-        if (result) return result;
-    }
-    if (y <= 7 && board[x][y + 1] == type && board[x][y + 2] == type) {
-        // ×óÏÂ
-        if (x >= 2 && board[x - 1][y] == type && board[x - 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y - 2] = EMPTY;
-            board[x - 1][y] = EMPTY;
-            board[x - 2][y] = EMPTY;
-            result = true;
-        }
-        if (result) return result;
-        // ×óÉÏ
-        if (x <= 7 && board[x + 1][y] == type && board[x + 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y - 2] = EMPTY;
-            board[x + 1][y] = EMPTY;
-            board[x + 2][y] = EMPTY;
-            result = true;
-        }
-    }
-    return result;
-}
-
-bool Model::checkBombT(int x, int y, ElementType type) {
-    bool result = false;
-    if (y >= 1 && y <= 8 && board[x][y - 1] == type && board[x][y + 1] == type) {
-        if (x >= 2 && board[x - 1][y] == type && board[x - 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y + 1] = EMPTY;
-            board[x - 1][y] = EMPTY;
-            board[x - 2][y] = EMPTY;
-            result = true;
-        }
-        if (result) return result;
-        if (x <= 7 && board[x + 1][y] == type && board[x + 2][y] == type) {
-            board[x][y] = BOMB;
-            board[x][y - 1] = EMPTY;
-            board[x][y + 1] = EMPTY;
-            board[x + 1][y] = EMPTY;
-            board[x + 2][y] = EMPTY;
-            result = true;
-        }
-        if (result) return result;
-    }
-    if (x >= 1 && x <= 8 && board[x - 1][y] == type && board[x + 1][y] == type) {
-        if (y >= 2 && board[x][y - 2] == type && board[x][y - 1] == type) {
-            board[x][y] = BOMB;
-            board[x - 1][y] = EMPTY;
-            board[x + 1][y] = EMPTY;
-            board[x][y - 2] = EMPTY;
-            board[x][y - 1] = EMPTY;
-        }
-        if (result) return result;
-        if (y <= 7 && board[x][y + 2] == type && board[x][y + 1] == type) {
-            board[x][y] = BOMB;
-            board[x - 1][y] = EMPTY;
-            board[x + 1][y] = EMPTY;
-            board[x][y + 2] = EMPTY;
-            board[x][y + 1] = EMPTY;
-        }
-        if (result) return result;
-    }
-    return result;
-}
-
-bool Model::checkRowClear(int x, int y, ElementType type) {
-    int rowcount = 1;
-    //Ïò×óÊı
-    for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-        rowcount++;
-    }
-    // ÏòÓÒÊı
-    for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-        rowcount++;
-    }
-    if (rowcount >= 4) {
-        for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-            board[x][i] = EMPTY;
-        }
-        for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-            board[x][i] = EMPTY;
-        }
-        board[x][y] = ROW_CLEAR;
-        return true;
-    }
-    return false;
-}
-
-bool Model::checkColumnClear(int x, int y, ElementType type) {
-    int columncount = 1;
-    // ÏòÉÏÊı
-    for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-        columncount++;
-    }
-    // ÏòÏÂÊı
-    for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-        columncount++;
-    }
-    if (columncount >= 4) {
-        for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-            board[i][y] = EMPTY;
-        }
-        for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-            board[i][y] = EMPTY;
-        }
-        board[x][y] = COLUMN_CLEAR;
-        return true;
-    }
-    return false;
-}
-
-bool Model::checkRow(int x, int y, ElementType type) {
-    int rowcount = 1;
-    // Ïò×óÊı
-    for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-        rowcount++;
-    }
-    // ÏòÓÒÊı
-    for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-        rowcount++;
-    }
-    if (rowcount >= 3) {
-        for (int i = y - 1; i >= 0 && board[x][i] == type; --i) {
-            board[x][i] = EMPTY;
-        }
-        for (int i = y + 1; i < 10 && board[x][i] == type; ++i) {
-            board[x][i] = EMPTY;
-        }
-        board[x][y] = EMPTY;
-        return true;
-    }
-    return false;
-}
-
-bool Model::checkColumn(int x, int y, ElementType type) {
-    int columncount = 1;
-    // ÏòÉÏÊı
-    for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-        columncount++;
-    }
-    // ÏòÏÂÊı
-    for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-        columncount++;
-    }
-    if (columncount >= 3) {
-        for (int i = x - 1; i >= 0 && board[i][y] == type; --i) {
-            board[i][y] = EMPTY;
-        }
-        for (int i = x + 1; i < 10 && board[i][y] == type; ++i) {
-            board[i][y] = EMPTY;
-        }
-        board[x][y] = EMPTY;
-        return true;
-    }
-    return false;
-}
-
-void Model::clearSpecialElement(ElementType type, int x, int y) {
-
-}
-
-void Model::cleardoubleSpecialElements(ElementType type1, int x1, int y1, ElementType type2, int x2, int y2) {
-
-}
-
-bool Model::isValidSwap(int x1, int y1, int x2, int y2) {
-    // ¼ì²é½»»»ÊÇ·ñºÏ·¨
-    if (x1 < 0 || x1 >= 10 || y1 < 0 || y1 >= 10 ||
-        x2 < 0 || x2 >= 10 || y2 < 0 || y2 >= 10) {
-        return false; // ³¬³öÓÎÏ·°å±ß½ç£¬½»»»·Ç·¨
-    }
-    if (abs(x1 - x2) + abs(y1 - y2) != 1) {
-        return false; // ·ÇÏàÁÚÎ»ÖÃ£¬½»»»·Ç·¨
-    }
-
-    // Ö´ĞĞ½»»»
-    std::swap(board[x1][y1], board[x2][y2]);
-
-    //¿¼ÂÇÊÇ·ñÓĞÌØÊâÔªËØ
-    if (static_cast<int> (board[x1][y1]) >= 7 && static_cast<int> (board[x2][y2]) >= 7) {//¾ùÎªÌØÊâÔªËØ
-        ElementType type1 = board[x1][y1], type2 = board[x2][y2];
-        if (static_cast<int> (type1) >= static_cast<int> (type2)) {
-            cleardoubleSpecialElements(type1, x1, y1, type2, x2, y2);
-        }
-        else {
-            cleardoubleSpecialElements(type2, x2, y2, type1, x1, y1);
-        }
-        return true;
-    }
-    else if (static_cast<int> (board[x1][y1]) >= 7) {//½»»»ºóx1£¬y1´¦µÄÎªÌØÊâÔªËØ
-        if (board[x1][y1] == RAINBOW_CIRCLE) clearRainbowCircle(x1, y1, x2, y2);
-        else clearSpecialElement(board[x1][y1], x1, y1);
-        return true;
-    }
-    else if (static_cast<int> (board[x2][y2]) >= 7) {//½»»»ºóx2£¬y2´¦µÄÎªÌØÊâÔªËØ
-        if (board[x2][y2] == RAINBOW_CIRCLE) clearRainbowCircle(x2, y2, x1, y1);
-        else clearSpecialElement(board[2][y2], x2, y2);
-        return true;
-    }
-
-    // ¼ì²éÌØÊâÏû³ıĞÎÌ¬
-    bool result1 = checkSpecialElement(x2, y2);
-
-    // Èç¹ûÃ»ÓĞÌØÊâĞÎÌ¬Ïû³ı£¬Ôò¼ì²éĞĞÁĞÏû³ı
-    if (!result1) {
-        result1 = checkRowOrColumn(x2, y2, true); // ¼ì²éĞĞÏû³ı
-        if (!result1) {
-            result1 = checkRowOrColumn(x2, y2, false); // ¼ì²éÁĞÏû³ı
-        }
-    }
-
-    bool result2 = checkSpecialElement(x1, y1);
-    if (!result2) {
-        result2 = checkRowOrColumn(x1, y1, true);
-        if (!result2) {
-            result2 = checkRowOrColumn(x1, y1, false);
-        }
-    }
-
-    // Èç¹ûÃ»ÓĞÈÎºÎÏû³ı·¢Éú£¬³·Ïú½»»»
-    if (!result1 && !result2) {
-        std::swap(board[x1][y1], board[x2][y2]);
-    }
-
-    return result1||result2;
-}
-
-bool Model::checkRowOrColumn(int x, int y, bool isRow) {
-    // ¼ì²éĞĞ»òÁĞÊÇ·ñÓĞÏû³ıµÄ¿ÉÄÜĞÔ
-    ElementType type = board[x][y];
-    // ¼ì²éĞĞ
-    if (isRow) {
-        return checkRow(x, y, type);
-    }
-    // ¼ì²éÁĞ
-    else {
-        return checkColumn(x, y, type);
-    }
-}
-
-bool Model::checkSpecialElement(int x, int y) {
-    ElementType type = board[x][y];
-    bool result = false;
-
-    // ¼ì²é²ÊºçÈ¦
-    result = checkRainbowCircle(x, y, type);
-    if (result) return result;
-
-    // ¼ì²éÕ¨µ¯
-    //LĞÍ
-    result = checkBombL(x, y, type);
-    if (result) return result;
-    //TĞÍ
-    result = checkBombT(x, y, type);
-    if (result) return result;
-
-    //¼ì²éĞĞÏû³ı
-    result = checkRowClear(x, y, type);
-    if (result) return result;
-
-    //¼ì²éÁĞÏû³ı
-    result = checkColumnClear(x, y, type);
-
-    return result;
-}
-
-void Model::handleEmptyAndGravity() {
-    // ´Ó×óÍùÓÒÃ¿Ò»ÁĞ
+//å¯¹æ ¼å­è¿›è¡Œé‡åŠ›ä¸‹è½å¤„ç†ï¼Œä¼ é€’æ ¼å­ä¸‹è½çš„ä¿¡å·
+void Model::applyGravity()
+{
+    // ä»å·¦å¾€å³æ¯ä¸€åˆ—
     for (int j = 0; j < 10; ++j) {
-        int emptyCount = 0; // Í³¼Æ¿ÕÎ»ÊıÁ¿
+        int emptyCount = 0; // ç»Ÿè®¡ç©ºä½æ•°é‡
 
-        // ´Óµ×²¿ÍùÉÏ±éÀú
+        // ä»åº•éƒ¨å¾€ä¸Šéå†
         for (int i = 9; i >= 0; --i) {
-            if (board[i][j] == EMPTY) {
+            if (board[i][j] == 0) {
                 emptyCount++;
             }
             else if (emptyCount > 0) {
-                // Èç¹ûµ±Ç°Î»ÖÃ·Ç¿ÕÇÒÏÂ·½ÓĞ¿ÕÎ»£¬Ö´ĞĞÏÂÂä²Ù×÷
+                // å¦‚æœå½“å‰ä½ç½®éç©ºä¸”ä¸‹æ–¹æœ‰ç©ºä½ï¼Œæ‰§è¡Œä¸‹è½æ“ä½œ
                 std::swap(board[i][j], board[i + emptyCount][j]);
             }
         }
-
-        // Ìî³ä¿ÕÎ»
-        for (int k = emptyCount - 1; k >= 0; --k) {
-            board[k][j] = getRandomFruitType(); // Ìî³äËæ»úË®¹ûÀàĞÍ
-            updateScore();
-        }
     }
+    emit tilesDropped();
 }
 
-ElementType Model::getRandomFruitType() {
-    // Éú³ÉËæ»úµÄË®¹ûÀàĞÍ
-    return static_cast<ElementType>(rand() % 6 + 1);
-}
-
-void Model::refreshBoard() {
+//
+void Model::fillGaps()
+{
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
-            board[i][j] = getRandomFruitType();
+            if (m_board[i][j] == 0) { // å¦‚æœæ–¹å—ä¸ºç©º
+                int color = QRandomGenerator::global()->bounded(1, 7); // éšæœºç”Ÿæˆé¢œè‰²
+                // æ£€æŸ¥ç›¸é‚»æ–¹å—çš„é¢œè‰²ï¼Œç¡®ä¿æ–°é¢œè‰²ä¸ä¸‹å·¦å³ä¸åŒ
+                while (
+                        (i > 0 && m_board[i - 1][j] == color) ||
+                        (i < 9 && m_board[i + 1][j] == color) ||
+                        (j < 9 && m_board[i][j + 1] == color)
+                        ) {
+                    color = QRandomGenerator::global()->bounded(1, 7);
+                }
+                m_board[i][j] = color;
+            }
         }
     }
+    emit boardUpdated();
 }
 
-void Model::updateScore() {
-    if (currentDifficulty == EASY) score++;
-    else score += 2;
+void Model::updateBoardState()
+{
+    emit boardStateChanged();
 }
 
-void Model::clearElements() {
-    // Ïû³ıÔªËØ²¢¸üĞÂ×´Ì¬
-    bool cleared;
-    do {
-        cleared = false;
-        std::vector<std::vector<bool>> toClear(10, std::vector<bool>(10, false));
-
-        // ¼ì²éĞĞ
-        for (int i = 0; i < 10; ++i) {
-            for (int j = 0; j < 8; ++j) {
-                if (board[i][j] == board[i][j + 1] && board[i][j] == board[i][j + 2]) {
-                    toClear[i][j] = toClear[i][j + 1] = toClear[i][j + 2] = true;
-                    cleared = true;
-                }
-            }
-        }
-
-        // ¼ì²éÁĞ
-        for (int j = 0; j < 10; ++j) {
-            for (int i = 0; i < 8; ++i) {
-                if (board[i][j] == board[i + 1][j] && board[i][j] == board[i + 2][j]) {
-                    toClear[i][j] = toClear[i + 1][j] = toClear[i + 2][j] = true;
-                    cleared = true;
-                }
-            }
-        }
-
-        // Çå³ı±ê¼ÇµÄÔªËØ
-        for (int i = 0; i < 10; ++i) {
-            for (int j = 0; j < 10; ++j) {
-                if (toClear[i][j]) {
-                    board[i][j] = EMPTY;
-                    handleEmptyAndGravity();
-                }
-            }
-        }
-
-    } while (cleared);
-}
-
-bool Model::isGameOver() {
-    return stepsLeft == 0;
+void Model::generateRandomColor(int& x, int& y)
+{
+    int color = QRandomGenerator::global()->bounded(1, 7);
+    while (color == (x > 0 ? m_board[x - 1][y] : 0) ||
+           color == (x < 9 ? m_board[x + 1][y] : 0) ||
+           color == (y > 0 ? m_board[x][y - 1] : 0)) {
+        color = QRandomGenerator::global()->bounded(1, 7);
+    }
+    m_board[x][y] = color;
 }

@@ -1,72 +1,57 @@
-#include "ViewModel.h"
+// ViewModel.cpp
+#include "QMetaType"
+#include "viewmodel.h"
+#include "model.h"
 
-ViewModel::ViewModel() : model() {}
+Q_DECLARE_METATYPE(TilePosition)
+Q_DECLARE_METATYPE(QVector<TilePosition>)
 
-void ViewModel::saveAndResetSimple() {
-    model.saveGame();
-    model.initializeGame(EASY);
+ViewModel::ViewModel(Model *model, QObject *parent)
+        : QObject(parent), m_model(model)
+{
+    connect(m_model, &Model::boardStateChanged, this, &ViewModel::onBoardStateChanged);
+    connect(m_model, &Model::tilesSwapped, this, &ViewModel::onTilesSwapped);
+    connect(m_model, &Model::tilesEliminated, this, &ViewModel::onTilesEliminated);
+    connect(m_model, &Model::tilesDropped, this, &ViewModel::onTilesDropped);
+    connect(m_model, &Model::boardUpdated, this, &ViewModel::onBoardUpdated);
 }
 
-void ViewModel::saveAndResetDifficult() {
-    model.saveGame();
-    model.initializeGame(HARD);
+QVector<QVector<int>> ViewModel::getBoardState() const
+{
+    return m_model->getBoardState();
 }
 
-void ViewModel::getSimpleRank() {
-    // 获取简单模式排行榜
-    model.loadLeaderboard();
+void ViewModel::initializeBoard()
+{
+    m_model->initializeBoard();
 }
 
-void ViewModel::getDifficultRank() {
-    // 获取困难模式排行榜
-    model.loadLeaderboard();
+void ViewModel::swapTiles(int x1, int y1, int x2, int y2)
+{
+    m_model->swapTiles(x1, y1, x2, y2);
 }
 
-void ViewModel::fetchUserSwap(int x1, int y1, int x2, int y2) {
-    if (model.isValidSwap(x1, y1, x2, y2)) {
-        model.processSwap(x1, x2, y1, y2);
-    }
-    else {
-        // 处理非法交换
-        std::swap(model.board[x1][y1], model.board[x2][y2]);
-        std::swap(model.board[x1][y1], model.board[x2][y2]);
-    }
+void ViewModel::onBoardStateChanged()
+{
+    emit boardStateChanged();
 }
 
-GameState ViewModel::getGameState() const {
-    return model.getGameState();
+void ViewModel::onTilesSwapped()
+{
+    emit tilesSwapped();
 }
 
-void ViewModel::getToolUse(ToolType tool, int x, int y) {
-    model.useTool(tool, x, y);
+void ViewModel::onTilesEliminated(const QVector<TilePosition>& tiles)
+{
+    emit tilesEliminated(tiles);
 }
 
-int ViewModel::getNewTask() const {
-    return model.getGameState().currentTask.TaskType;
+void ViewModel::onTilesDropped()
+{
+    emit tilesDropped();
 }
 
-void ViewModel::fetchUpdateTaskProgress() {
-    if (model.checkTaskCompletion()) {
-        model.assignNewTask();
-    }
-}
-
-void ViewModel::saveGameProgress() {
-    model.saveGame();
-}
-
-void ViewModel::loadGameProgress() {
-    model.loadGame();
-}
-
-int ViewModel::fetchPoint() const {
-    return model.getGameState().score;
-}
-
-bool ViewModel::getIsNewRecord() {
-    return model.BreakRecord();
-}
-
-bool ViewModel::isGameOver() {
-    return model.isGameOver();
+void ViewModel::onBoardUpdated()
+{
+    emit boardUpdated();
 }
